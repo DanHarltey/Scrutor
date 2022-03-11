@@ -21,7 +21,7 @@ namespace Microsoft.Extensions.DependencyInjection
         {
             Preconditions.NotNull(services, nameof(services));
 
-            return services.DecorateDescriptors(typeof(TService), x => x.Decorate(typeof(TDecorator)));
+            return _DecorateDescriptors(services, typeof(TService), _CreateInstanceFactory(typeof(TDecorator)));
         }
 
         /// <summary>
@@ -35,7 +35,9 @@ namespace Microsoft.Extensions.DependencyInjection
         {
             Preconditions.NotNull(services, nameof(services));
 
-            return services.TryDecorateDescriptors(typeof(TService), out _, x => x.Decorate(typeof(TDecorator)));
+            var decorated = _TryDecorate(services, _CreateTypeSelector(typeof(TService)), _CreateInstanceFactory(typeof(TDecorator)));
+
+            return decorated != 0;
         }
 
         /// <summary>
@@ -56,10 +58,10 @@ namespace Microsoft.Extensions.DependencyInjection
 
             if (serviceType.IsOpenGeneric() && decoratorType.IsOpenGeneric())
             {
-                return services.DecorateOpenGeneric(serviceType, decoratorType);
+                return _DecorateOpenGeneric(services, serviceType, _CreateInstanceFactory(decoratorType));
             }
 
-            return services.DecorateDescriptors(serviceType, x => x.Decorate(decoratorType));
+            return _DecorateDescriptors(services, serviceType, _CreateInstanceFactory(decoratorType));
         }
 
         /// <summary>
@@ -77,12 +79,20 @@ namespace Microsoft.Extensions.DependencyInjection
             Preconditions.NotNull(serviceType, nameof(serviceType));
             Preconditions.NotNull(decoratorType, nameof(decoratorType));
 
+            Func<Type, bool> selector;
+
             if (serviceType.IsOpenGeneric() && decoratorType.IsOpenGeneric())
             {
-                return services.TryDecorateOpenGeneric(serviceType, decoratorType, out _);
+                selector = _CreateOpenGenericSelector(serviceType);
+            }
+            else
+            {
+                selector = _CreateTypeSelector(serviceType);
             }
 
-            return services.TryDecorateDescriptors(serviceType, out _, x => x.Decorate(decoratorType));
+            var decorated = _TryDecorate(services, selector, _CreateInstanceFactory(decoratorType));
+
+            return decorated != 0;
         }
 
         /// <summary>
@@ -99,8 +109,8 @@ namespace Microsoft.Extensions.DependencyInjection
         {
             Preconditions.NotNull(services, nameof(services));
             Preconditions.NotNull(decorator, nameof(decorator));
-
-            return services.DecorateDescriptors(typeof(TService), x => x.Decorate(decorator));
+            throw new NotImplementedException();
+            //return _DecorateDescriptors(services, typeof(TService), decorator);
         }
 
         /// <summary>
@@ -116,8 +126,9 @@ namespace Microsoft.Extensions.DependencyInjection
         {
             Preconditions.NotNull(services, nameof(services));
             Preconditions.NotNull(decorator, nameof(decorator));
+            throw new NotImplementedException();
 
-            return services.TryDecorateDescriptors(typeof(TService), out _, x => x.Decorate(decorator));
+            //return services._TryDecorateDescriptors(typeof(TService), out _, x => x.Decorate(decorator));
         }
 
         /// <summary>
@@ -134,8 +145,9 @@ namespace Microsoft.Extensions.DependencyInjection
         {
             Preconditions.NotNull(services, nameof(services));
             Preconditions.NotNull(decorator, nameof(decorator));
+            throw new NotImplementedException();
 
-            return services.DecorateDescriptors(typeof(TService), x => x.Decorate(decorator));
+            //return services.DecorateDescriptors(typeof(TService), x => x.Decorate(decorator));
         }
 
         /// <summary>
@@ -151,8 +163,9 @@ namespace Microsoft.Extensions.DependencyInjection
         {
             Preconditions.NotNull(services, nameof(services));
             Preconditions.NotNull(decorator, nameof(decorator));
+            throw new NotImplementedException();
 
-            return services.TryDecorateDescriptors(typeof(TService), out _, x => x.Decorate(decorator));
+            //return services._TryDecorateDescriptors(typeof(TService), out _, x => x.Decorate(decorator));
         }
 
         /// <summary>
@@ -171,7 +184,8 @@ namespace Microsoft.Extensions.DependencyInjection
             Preconditions.NotNull(serviceType, nameof(serviceType));
             Preconditions.NotNull(decorator, nameof(decorator));
 
-            return services.DecorateDescriptors(serviceType, x => x.Decorate(decorator));
+            // why no open Generic
+            return _DecorateDescriptors(services, serviceType, decorator);
         }
 
         /// <summary>
@@ -189,7 +203,8 @@ namespace Microsoft.Extensions.DependencyInjection
             Preconditions.NotNull(serviceType, nameof(serviceType));
             Preconditions.NotNull(decorator, nameof(decorator));
 
-            return services.TryDecorateDescriptors(serviceType, out _, x => x.Decorate(decorator));
+            // why no open Generic
+            return 0 != _TryDecorate(services, _CreateTypeSelector(serviceType), decorator);
         }
 
         /// <summary>
@@ -208,7 +223,8 @@ namespace Microsoft.Extensions.DependencyInjection
             Preconditions.NotNull(serviceType, nameof(serviceType));
             Preconditions.NotNull(decorator, nameof(decorator));
 
-            return services.DecorateDescriptors(serviceType, x => x.Decorate(decorator));
+            // why no open Generic
+            return _DecorateDescriptors(services, serviceType, (instanceToDecorate, sp) => decorator(instanceToDecorate));
         }
 
         /// <summary>
@@ -226,163 +242,134 @@ namespace Microsoft.Extensions.DependencyInjection
             Preconditions.NotNull(serviceType, nameof(serviceType));
             Preconditions.NotNull(decorator, nameof(decorator));
 
-            return services.TryDecorateDescriptors(serviceType, out _, x => x.Decorate(decorator));
+            return 0 != _TryDecorate(services, _CreateTypeSelector(serviceType), (instanceToDecorate, sp) => decorator(instanceToDecorate));
         }
 
-        private static IServiceCollection DecorateOpenGeneric(this IServiceCollection services, Type serviceType, Type decoratorType)
+        // ---------------------
+
+        private static IServiceCollection _DecorateDescriptors(this IServiceCollection services, Type serviceType, Func<object, IServiceProvider, object> creationFactory)
         {
-            if (services.TryDecorateOpenGeneric(serviceType, decoratorType, out var error))
+            var decorated = _TryDecorate(services, _CreateTypeSelector(serviceType), creationFactory);
+
+            if (decorated == 0)
             {
-                return services;
+                throw new MissingTypeRegistrationException(serviceType);
             }
 
-            throw error;
+            return services;
         }
 
-        private static bool HasSameTypeDefinition(Type t1, Type t2)
+        private static IServiceCollection _DecorateOpenGeneric(IServiceCollection services, Type serviceType, Func<object, IServiceProvider, object> creationFactory)
         {
-            return t1.IsGenericType && t2.IsGenericType && t1.GetGenericTypeDefinition() == t2.GetGenericTypeDefinition();
-        }
+            var decorated = _TryDecorate(services, _CreateOpenGenericSelector(serviceType), creationFactory);
 
-        private static bool TryDecorateOpenGeneric(this IServiceCollection services, Type serviceType, Type decoratorType, [NotNullWhen(false)] out Exception? error)
-        {
-            var closedGenericServiceTypes = services
-                .Where(x => !x.ServiceType.IsGenericTypeDefinition)
-                .Where(x => HasSameTypeDefinition(x.ServiceType, serviceType))
-                .Select(x => x.ServiceType)
-                .Distinct()
-                .ToList();
-
-            if (closedGenericServiceTypes.Count == 0)
+            if (decorated == 0)
             {
-                error = new MissingTypeRegistrationException(serviceType);
-                return false;
+                throw new MissingTypeRegistrationException(serviceType);
             }
 
-            foreach (var closedGenericServiceType in closedGenericServiceTypes)
-            {
-                var arguments = closedGenericServiceType.GetGenericArguments();
+            return services;
+        }
 
-                var closedServiceType = serviceType.MakeGenericType(arguments);
-                try
+        private static int _TryDecorate(IServiceCollection services, Func<Type, bool> selector, Func<object, IServiceProvider, object> creationFactory)
+        {
+            int decorated = 0;
+
+            for (int i = services.Count - 1; i >= 0; i--)
+            {
+                var service = services[i];
+
+                if (selector(service.ServiceType))
                 {
-                    var closedDecoratorType = decoratorType.MakeGenericType(arguments);
-                    if (!services.TryDecorateDescriptors(closedServiceType, out error, x => x.Decorate(closedDecoratorType)))
-                    {
-                        return false;
-                    }
-                }
-                catch (ArgumentException) { }
-            }
+                    var decoratedType = new DecoratedType(service.ServiceType);
 
-            error = default;
-            return true;
-        }
+                    // insert decorator
+                    services[i] = new ServiceDescriptor(service.ServiceType, _CreateImplementationFactory(decoratedType, creationFactory), service.Lifetime);
 
-        private static IServiceCollection DecorateDescriptors(this IServiceCollection services, Type serviceType, Func<ServiceDescriptor, ServiceDescriptor> decorator)
-        {
-            if (services.TryDecorateDescriptors(serviceType, out var error, decorator))
-            {
-                return services;
-            }
+                    // insert decorated
+                    var decoratedTypeDescriptor = _DecorateServiceDescriptor(service, decoratedType);
+                    services.Add(decoratedTypeDescriptor);
 
-            throw error;
-        }
-
-        private static bool TryDecorateDescriptors(this IServiceCollection services, Type serviceType, [NotNullWhen(false)] out Exception? error, Func<ServiceDescriptor, ServiceDescriptor> decorator)
-        {
-            if (!services.TryGetDescriptors(serviceType, out var descriptors))
-            {
-                error = new MissingTypeRegistrationException(serviceType);
-                return false;
-            }
-
-            foreach (var (position, value) in descriptors)
-            {
-                // To avoid reordering descriptors, in case a specific order is expected.
-                services[position] = decorator(value);
-            }
-
-            error = default;
-            return true;
-        }
-
-        private static bool TryGetDescriptors(this IServiceCollection services, Type serviceType, out IReadOnlyList<(int Position, ServiceDescriptor Value)> descriptors)
-        {
-            descriptors = EnumerateDescriptors().ToArray();
-            return descriptors.Count != 0;
-
-            IEnumerable<(int Position, ServiceDescriptor Value)> EnumerateDescriptors()
-            {
-                for (var i = 0; i < services.Count; ++i)
-                {
-                    var descriptor = services[i];
-                    if (descriptor.ServiceType == serviceType)
-                    {
-                        yield return (i, descriptor);
-                    }
+                    ++decorated;
                 }
             }
+
+            return decorated;
         }
 
-        private static ServiceDescriptor Decorate<TService>(this ServiceDescriptor descriptor, Func<TService, IServiceProvider, TService> decorator) where TService : notnull
+        ////private ServiceDescriptor _Decorate(IServiceCollection services, int index, ServiceDescriptor service, Type decoratorType, Func<object, IServiceProvider, object> creationFactory)
+        ////{
+        ////    var decoratedType = new DecoratedType(service.ServiceType);
+
+        ////    // insert decorator
+        ////    services[index] = new ServiceDescriptor(service.ServiceType, _CreateImplementationFactory(decoratedType, creationFactory), service.Lifetime);
+
+        ////    // insert decorated
+        ////    var decoratedTypeDescriptor = _DecorateServiceDescriptor(service, decoratedType);
+        ////    services.Add(decoratedTypeDescriptor);
+        ////}
+
+        ////private static int _____TryDecorateOpenGeneric(IServiceCollection services, Func<Type, bool> selector, Type serviceType, Type decoratorType, Func<object, IServiceProvider, object> creationFactory)
+        ////{
+        ////    int decorated = 0;
+
+        ////    for (int i = services.Count - 1; i >= 0; i--)
+        ////    {
+        ////        var service = services[i];
+
+        ////        if (selector(service.ServiceType))
+        ////        {
+        ////            var arguments = service.ServiceType.GetGenericArguments();
+
+        ////            var closedServiceType = serviceType.MakeGenericType(arguments);
+        ////            try
+        ////            {
+        ////                var closedDecoratorType = decoratorType.MakeGenericType(arguments);
+       
+        ////            }
+        ////            catch (ArgumentException) { }
+        ////        }
+        ////    }
+
+        ////    return decorated;
+        ////}
+
+        private static ServiceDescriptor _DecorateServiceDescriptor(ServiceDescriptor descriptor, Type decoratedType) => descriptor switch
         {
-            return descriptor.WithFactory(provider => decorator((TService)provider.GetInstance(descriptor), provider));
-        }
+            { ImplementationType: not null } => new ServiceDescriptor(decoratedType, descriptor.ImplementationType, descriptor.Lifetime),
+            { ImplementationFactory: not null } => new ServiceDescriptor(decoratedType, descriptor.ImplementationFactory, descriptor.Lifetime),
+            { ImplementationInstance: not null } => new ServiceDescriptor(decoratedType, descriptor.ImplementationInstance),
+            _ => throw new InvalidOperationException($"No implementation factory or instance or type found for {descriptor.ServiceType}.")
+        };
 
-        private static ServiceDescriptor Decorate<TService>(this ServiceDescriptor descriptor, Func<TService, TService> decorator) where TService : notnull
+        private static Func<IServiceProvider, object> _CreateImplementationFactory(Type decorated, Func<object, IServiceProvider, object> creationFactory) => (serviceProvider) =>
         {
-            return descriptor.WithFactory(provider => decorator((TService)provider.GetInstance(descriptor)));
-        }
+            var instanceToDecorate = serviceProvider.GetService(decorated);
 
-        private static ServiceDescriptor Decorate(this ServiceDescriptor descriptor, Type decoratorType)
+            return creationFactory(instanceToDecorate, serviceProvider);
+        };
+
+        private static Func<object, IServiceProvider, object> _CreateInstanceFactory(Type decorator) => (instanceToDecorate, serviceProvider)
+            => ActivatorUtilities.CreateInstance(serviceProvider, decorator, instanceToDecorate);
+
+        private static Func<object, IServiceProvider, object> _CreateOpenGenericInstanceFactory(Type decorator, Type decorated)
         {
-            return descriptor.WithFactory(provider => provider.CreateInstance(decoratorType, provider.GetInstance(descriptor)));
+            make this used and tests replace _CreateInstanceFactory where needed
+            var arguments = decorated.GetGenericArguments();
+
+            var closedDecorator = decorator.MakeGenericType(arguments);
+
+            return (instanceToDecorate, serviceProvider) => ActivatorUtilities.CreateInstance(serviceProvider, closedDecorator, instanceToDecorate);
         }
 
-        private static ServiceDescriptor WithFactory(this ServiceDescriptor descriptor, Func<IServiceProvider, object> factory)
-        {
-            return ServiceDescriptor.Describe(descriptor.ServiceType, factory, descriptor.Lifetime);
-        }
+        private static Func<Type, bool> _CreateTypeSelector(Type serviceType) => (descriptorType)
+            => descriptorType == serviceType;
 
-        private static object GetInstance(this IServiceProvider provider, ServiceDescriptor descriptor)
-        {
-            if (descriptor.ImplementationInstance != null)
-            {
-                return descriptor.ImplementationInstance;
-            }
+        private static Func<Type, bool> _CreateOpenGenericSelector(Type serviceType) => (descriptorType)
+            => (!descriptorType.IsGenericTypeDefinition) && _HasSameTypeDefinition(descriptorType, serviceType);
 
-            // Not suppose to be abstract. 
-            var implementationType = descriptor.ImplementationType;
-            if (implementationType != null)
-            {
-                if (implementationType == descriptor.ServiceType)
-                {
-                    // Since implementationType is equal to ServiceType we need explicitly create an implementation type through reflections in order to avoid infinite recursion.
-                    // Should not cause issue with singletons, since singleton will be a decorator and after this fact we can don't care about lifecycle of decorable service (for sure, if IDisposable of decorator disposes underlying type:))
-                    return provider.CreateInstance(implementationType);
-                }
-
-                return provider.GetServiceOrCreateInstance(implementationType);
-            }
-
-            if (descriptor.ImplementationFactory != null)
-            {
-                return descriptor.ImplementationFactory(provider);
-            }
-
-            throw new InvalidOperationException($"No implementation factory or instance or type found for {descriptor.ServiceType}.");
-        }
-
-        private static object GetServiceOrCreateInstance(this IServiceProvider provider, Type type)
-        {
-            return ActivatorUtilities.GetServiceOrCreateInstance(provider, type);
-        }
-
-        private static object CreateInstance(this IServiceProvider provider, Type type, params object[] arguments)
-        {
-            return ActivatorUtilities.CreateInstance(provider, type, arguments);
-        }
+        private static bool _HasSameTypeDefinition(Type t1, Type t2)
+            => t1.IsGenericType && t2.IsGenericType && t1.GetGenericTypeDefinition() == t2.GetGenericTypeDefinition();
     }
 }
 
