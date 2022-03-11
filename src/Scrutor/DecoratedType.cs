@@ -18,6 +18,17 @@ namespace Scrutor
 
         public override string Name => "Decorated " + _proxiedType.Name;
 
+        #region Implementing the virtual Type methods, forward all methods to _proxiedType
+
+        public override int GetArrayRank() => _proxiedType.GetArrayRank();
+        public override Type GetGenericTypeDefinition() => _proxiedType.GetGenericTypeDefinition();
+        public override Type[] GetGenericArguments() => _proxiedType.GetGenericArguments();
+        public override MemberInfo[] GetMember(string name, MemberTypes type, BindingFlags bindingAttr) => _proxiedType.GetMember(name, type, bindingAttr);
+        public override InterfaceMapping GetInterfaceMap(Type interfaceType) => _proxiedType.GetInterfaceMap(interfaceType);
+        public override Type MakeGenericType(params Type[] typeArguments) => _proxiedType.MakeGenericType(typeArguments);
+
+        #endregion
+
         #region Implementing the abstract Type class, forward all methods to _proxiedType
 
         public override Guid GUID => _proxiedType.GUID;
