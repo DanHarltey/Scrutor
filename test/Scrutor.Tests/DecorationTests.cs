@@ -41,7 +41,8 @@ namespace Scrutor.Tests
             var decorator = Assert.IsType<Decorator>(instance);
             var outerDecorator = Assert.IsType<Decorator>(decorator.Inner);
 
-            Assert.IsType<Decorated>(outerDecorator.Inner);
+            var innerDecorator = Assert.IsType<Decorator>(decorator.Inner);
+            Assert.NotSame(decorator, innerDecorator);
         }
 
         [Fact]
@@ -148,15 +149,18 @@ namespace Scrutor.Tests
                 services.Decorate<IDisposableService, DisposableServiceDecorator>();
             });
 
-            var disposable = provider.GetRequiredService<IDisposableService>();
+            DisposableServiceDecorator decorator;
+            using (var scope = provider.CreateScope())
+            {
+                var disposable = scope.ServiceProvider.GetRequiredService<IDisposableService>();
 
-            var decorator = Assert.IsType<DisposableServiceDecorator>(disposable);
-
-            provider.Dispose();
+                decorator = Assert.IsType<DisposableServiceDecorator>(disposable);
+            }
 
             Assert.True(decorator.WasDisposed);
             Assert.True(decorator.Inner.WasDisposed);
         }
+
 
         [Fact]
         public void ServicesWithSameServiceTypeAreOnlyDecoratedOnce()
@@ -315,7 +319,6 @@ namespace Scrutor.Tests
 
             public void Dispose()
             {
-                Inner.Dispose();
                 WasDisposed = true;
             }
         }
