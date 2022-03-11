@@ -157,9 +157,9 @@ namespace Microsoft.Extensions.DependencyInjection
         {
             Preconditions.NotNull(services, nameof(services));
             Preconditions.NotNull(decorator, nameof(decorator));
-            ////throw new NotImplementedException();
+            throw new NotImplementedException();
 
-            return 0 != _TryDecorate(services, _CreateTypeSelector(typeof(TService)), _CreateImplementationFactory((obj, sp) => decorator((TService)obj)));
+            //return 0 != _TryDecorate(services, _CreateTypeSelector(typeof(TService)), _CreateImplementationFactory((obj, sp) => decorator((TService)obj)));
         }
 
         /// <summary>
