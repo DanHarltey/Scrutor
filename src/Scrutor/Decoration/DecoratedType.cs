@@ -18,6 +18,11 @@ namespace Scrutor.Decoration
 
         public override string Name => "Decorated " + _proxiedType.Name;
 
+        public override bool IsConstructedGenericType => _proxiedType.IsConstructedGenericType;
+        public override bool IsGenericParameter => _proxiedType.IsGenericParameter;
+        public override bool IsGenericType => _proxiedType.IsGenericType;
+        public override bool IsGenericTypeDefinition => _proxiedType.IsGenericTypeDefinition;
+
         #region Implementing the virtual Type methods, forward all methods to _proxiedType
 
         public override int GetArrayRank() => _proxiedType.GetArrayRank();
