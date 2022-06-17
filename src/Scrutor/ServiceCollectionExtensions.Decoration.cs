@@ -56,6 +56,24 @@ public static partial class ServiceCollectionExtensions
         return services.Decorate(DecorationStrategy.WithType(serviceType, decoratorType));
     }
 
+    public static IServiceCollection DecorateCurrent(this IServiceCollection services, Type serviceType, Type decoratorType)
+    {
+        Preconditions.NotNull(services, nameof(services));
+        Preconditions.NotNull(serviceType, nameof(serviceType));
+        Preconditions.NotNull(decoratorType, nameof(decoratorType));
+
+        return services.DecorateOld(DecorationStrategy.WithType(serviceType, decoratorType));
+    }
+
+    public static IServiceCollection DecorateNext(this IServiceCollection services, Type serviceType, Type decoratorType)
+    {
+        Preconditions.NotNull(services, nameof(services));
+        Preconditions.NotNull(serviceType, nameof(serviceType));
+        Preconditions.NotNull(decoratorType, nameof(decoratorType));
+
+        return services.DecorateNext(DecorationStrategy.WithType(serviceType, decoratorType));
+    }
+
     /// <summary>
     /// Decorates all registered services of the specified <paramref name="serviceType"/>
     /// using the specified <paramref name="decoratorType"/>.
@@ -234,6 +252,28 @@ public static partial class ServiceCollectionExtensions
         throw new DecorationException(strategy);
     }
 
+    public static IServiceCollection DecorateOld(this IServiceCollection services, DecorationStrategy strategy)
+    {
+        if (services.TryDecorateOld(strategy))
+        {
+            return services;
+        }
+
+        throw new DecorationException(strategy);
+    }
+
+    public static IServiceCollection DecorateNext(this IServiceCollection services, DecorationStrategy strategy)
+    {
+        if (services.TryDecorateNext(strategy))
+        {
+            return services;
+        }
+
+        throw new DecorationException(strategy);
+    }
+
+    
+
     /// <summary>
     /// Decorates all registered services using the specified <paramref name="strategy"/>.
     /// </summary>
@@ -264,6 +304,76 @@ public static partial class ServiceCollectionExtensions
 
             // Insert decorated
             services.Add(serviceDescriptor.WithDecoratedType(decoratedType));
+
+            // Replace decorator
+            services[i] = serviceDescriptor.WithImplementationFactory(strategy.CreateDecorator(decoratedType));
+
+            decorated = true;
+        }
+
+        return decorated;
+    }
+
+    public static bool TryDecorateOld(this IServiceCollection services, DecorationStrategy strategy)
+    {
+        Preconditions.NotNull(services, nameof(services));
+        Preconditions.NotNull(strategy, nameof(strategy));
+
+        var decorated = false;
+
+        for (var i = services.Count - 1; i >= 0; i--)
+        {
+            var serviceDescriptor = services[i];
+
+            if (serviceDescriptor.ServiceType is DecoratedType)
+            {
+                continue; // Service has already been decorated.
+            }
+
+            if (!strategy.CanDecorate(serviceDescriptor.ServiceType))
+            {
+                continue; // Unable to decorate using the specified strategy.
+            }
+
+            var decoratedType = new DecoratedType(serviceDescriptor.ServiceType);
+
+            // Insert decorated
+            services.Add(serviceDescriptor.WithServiceType(decoratedType));
+
+            // Replace decorator
+            services[i] = serviceDescriptor.WithImplementationFactory(strategy.CreateDecorator(decoratedType));
+
+            decorated = true;
+        }
+
+        return decorated;
+    }
+
+    public static bool TryDecorateNext(this IServiceCollection services, DecorationStrategy strategy)
+    {
+        Preconditions.NotNull(services, nameof(services));
+        Preconditions.NotNull(strategy, nameof(strategy));
+
+        var decorated = false;
+
+        for (var i = services.Count - 1; i >= 0; i--)
+        {
+            var serviceDescriptor = services[i];
+
+            if (serviceDescriptor.ServiceType is DecoratedType)
+            {
+                continue; // Service has already been decorated.
+            }
+
+            if (!strategy.CanDecorate(serviceDescriptor.ServiceType))
+            {
+                continue; // Unable to decorate using the specified strategy.
+            }
+
+            var decoratedType = new DecoratedType(serviceDescriptor.ServiceType);
+
+            // Insert decorated
+            services.Add(serviceDescriptor.WithDecoratedTypeNext(decoratedType));
 
             // Replace decorator
             services[i] = serviceDescriptor.WithImplementationFactory(strategy.CreateDecorator(decoratedType));
