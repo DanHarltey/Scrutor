@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 using System.Linq;
+using System.Reflection;
 
 namespace Scrutor.Tests;
 
@@ -228,6 +229,29 @@ public class DecorationTests : TestBase
         var inner = Assert.IsType<DecoratedService>(result.Inner);
         Assert.NotNull(inner.Dependency);
     }
+
+    [Fact]
+    public void Issue175_DecorateCanSupportLightInject()
+    {
+        var services = new ServiceCollection();
+
+        services
+            .AddTransient<IDecoratedService>(sp => new Decorated())
+            .Decorate<IDecoratedService, Decorator>();
+
+        foreach (var serviceDescriptor in services)
+        {
+            // LightInject.Microsoft.DependencyInjection uses this method to transform the registrations
+            if (serviceDescriptor.ImplementationFactory != null)
+            {
+                var openGenericMethod = typeof(DecorationTests).GetMethod(nameof(CreateTypedFactoryDelegate), BindingFlags.Static | BindingFlags.NonPublic);
+                var closedGenericMethod = openGenericMethod.MakeGenericMethod(serviceDescriptor.ServiceType);
+                closedGenericMethod.Invoke(null, new object[] { new object() });
+            }
+        }
+    }
+
+    private static Func<object, T> CreateTypedFactoryDelegate<T>(object _) => default;
 
     #region Individual functions tests
 
