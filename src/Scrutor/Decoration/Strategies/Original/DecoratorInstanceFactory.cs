@@ -1,7 +1,7 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using System;
 
-namespace Scrutor.Decoration.Strategies.Original
+namespace Scrutor.Decoration.Original
 {
     internal static class DecoratorInstanceFactory
     {
