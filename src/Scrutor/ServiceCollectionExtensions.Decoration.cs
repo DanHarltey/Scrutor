@@ -7,6 +7,8 @@ namespace Microsoft.Extensions.DependencyInjection
 {
     public static partial class ServiceCollectionExtensions
     {
+        public static IDecorationFactory DecorationFactory { get; set; } = new DecorationFactory();
+
         /// <summary>
         /// Decorates all registered services of type <typeparamref name="TService"/>
         /// using the specified type <typeparamref name="TDecorator"/>.
