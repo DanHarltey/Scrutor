@@ -14,17 +14,19 @@ namespace Scrutor.Performance
 
         private ServiceProvider? originalStrategyProvider;
         private ServiceProvider? proxiedTypeProvider;
+        private ServiceProvider? emitTypeWithFactoryProvider;
 
         [GlobalSetup]
         public void SetUp()
         {
             ServiceCollectionExtensions.DecorationFactory = new Decoration.Strategies.Original.DecorationFactory();
-
             originalStrategyProvider = CreateServiceProvider();
 
             ServiceCollectionExtensions.DecorationFactory = new Decoration.Strategies.ProxiedType.DecorationFactory();
-
             proxiedTypeProvider = CreateServiceProvider();
+
+            ServiceCollectionExtensions.DecorationFactory = new Decoration.Strategies.EmitTypeWithFactory.DecorationFactory();
+            emitTypeWithFactoryProvider = CreateServiceProvider();
         }
 
         private static ServiceProvider CreateServiceProvider() => 
@@ -39,6 +41,9 @@ namespace Scrutor.Performance
 
         [Benchmark(Baseline = true)]
         public object ProxiedTypeStrategy() => proxiedTypeProvider!.GetRequiredService<IDecoratedService>();
+
+        [Benchmark]
+        public object EmitTypeWithFactoryStrategy() => emitTypeWithFactoryProvider!.GetRequiredService<IDecoratedService>();
 
         public interface IDecoratedService { }
 

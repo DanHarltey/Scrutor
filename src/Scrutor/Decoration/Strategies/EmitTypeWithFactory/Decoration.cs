@@ -57,7 +57,7 @@ namespace Scrutor.Decoration.Strategies.EmitTypeWithFactory
             return decorated;
         }
 
-        private static bool IsNotAlreadyDecorated(ServiceDescriptor serviceDescriptor) => serviceDescriptor.ServiceType.IsAssignableTo(typeof(InstanceWrapper));
+        private static bool IsNotAlreadyDecorated(ServiceDescriptor serviceDescriptor) => !typeof(InstanceWrapper).IsAssignableFrom(serviceDescriptor.ServiceType);
 
         private static ServiceDescriptor CreateDecoratedServiceDescriptor(ServiceDescriptor serviceDescriptor, Type decoratedType) => serviceDescriptor switch
         {
