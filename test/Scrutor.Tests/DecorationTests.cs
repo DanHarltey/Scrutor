@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 using System.Linq;
+using System.Reflection;
 
 namespace Scrutor.Tests
 {
@@ -229,6 +230,50 @@ namespace Scrutor.Tests
             Assert.NotNull(inner.Dependency);
         }
 
+        [Fact]
+        public void Issue171_Decorate_IsAbleToCreateValidRegistration()
+        {
+            var services = new ServiceCollection();
+
+            services
+                .AddTransient<IDecoratedService, Decorated>()
+                .Decorate<IDecoratedService, Decorator>();
+
+            foreach (var serviceDescriptor in services)
+            {
+                if (serviceDescriptor.ImplementationType != null
+                    && serviceDescriptor.ServiceType != serviceDescriptor.ImplementationType)
+                {
+                    var implementationTypeInterfaces = serviceDescriptor.ImplementationType.GetInterfaces();
+                    var implementationAssignableToServiceType = implementationTypeInterfaces.Any(t => t == serviceDescriptor.ServiceType);
+                    Assert.True(implementationAssignableToServiceType);
+                }
+            }
+        }
+
+        [Fact]
+        public void Issue175_DecorateCanSupportLightInject()
+        {
+            var services = new ServiceCollection();
+
+            services
+                .AddTransient<IDecoratedService>(sp => new Decorated())
+                .Decorate<IDecoratedService, Decorator>();
+
+            foreach (var serviceDescriptor in services)
+            {
+                // LightInject.Microsoft.DependencyInjection uses this method to transform the registrations
+                if (serviceDescriptor.ImplementationFactory != null)
+                {
+                    var openGenericMethod = typeof(DecorationTests).GetMethod(nameof(CreateTypedFactoryDelegate), BindingFlags.Static | BindingFlags.NonPublic);
+                    var closedGenericMethod = openGenericMethod.MakeGenericMethod(serviceDescriptor.ServiceType);
+                    closedGenericMethod.Invoke(null, new object[] { new object() });
+                }
+            }
+        }
+
+        private static Func<object, T> CreateTypedFactoryDelegate<T>(object _) => default;
+
         #region Individual functions tests
 
         [Fact]
@@ -361,10 +406,11 @@ namespace Scrutor.Tests
             });
 
             using var scope = provider.CreateScope();
-            var service1 = scope.ServiceProvider.GetRequiredService<IDecoratedService>();
-            var service2 = scope.ServiceProvider.GetRequiredService<IDecoratedService>();
+            var service1 = scope.ServiceProvider.GetRequiredService<IDecoratedService>() as Decorator;
+            var service2 = scope.ServiceProvider.GetRequiredService<IDecoratedService>() as Decorator;
 
             Assert.NotEqual(service1, service2);
+            Assert.NotEqual(service1.Inner, service2.Inner);
         }
 
         [Fact]
@@ -376,19 +422,22 @@ namespace Scrutor.Tests
                 services.Decorate<IDecoratedService, Decorator>();
             });
 
-            object service1;
+            Decorator service1;
 
             using (var scope = provider.CreateScope())
             {
-                service1 = scope.ServiceProvider.GetRequiredService<IDecoratedService>();
-                var service2 = scope.ServiceProvider.GetRequiredService<IDecoratedService>();
+                service1 = scope.ServiceProvider.GetRequiredService<IDecoratedService>() as Decorator;
+                var service2 = scope.ServiceProvider.GetRequiredService<IDecoratedService>() as Decorator;
                 Assert.Same(service1, service2);
+                Assert.Same(service1.Inner, service2.Inner);
+
             }
 
             using (var scope = provider.CreateScope())
             {
-                var service2 = scope.ServiceProvider.GetRequiredService<IDecoratedService>();
+                var service2 = scope.ServiceProvider.GetRequiredService<IDecoratedService>() as Decorator;
                 Assert.NotSame(service1, service2);
+                Assert.NotSame(service1.Inner, service2.Inner);
             }
         }
 
