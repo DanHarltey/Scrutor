@@ -1,8 +1,8 @@
 ﻿using System;
 
-namespace Scrutor.Decoration
+namespace Scrutor.Decoration.Strategies.Original
 {
-    internal class DecorationFactory : IDecorationFactory
+    public sealed class DecorationFactory : IDecorationFactory
     {
         public IDecoration Create(Type serviceType, Type? decoratorType, Func<object, IServiceProvider, object>? decoratorFactory)
         {

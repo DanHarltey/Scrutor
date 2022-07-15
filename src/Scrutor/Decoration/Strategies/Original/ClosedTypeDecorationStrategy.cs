@@ -1,6 +1,7 @@
-﻿using System;
+﻿using Microsoft.Extensions.DependencyInjection;
+using System;
 
-namespace Scrutor.Decoration
+namespace Scrutor.Decoration.Strategies.Original
 {
     internal sealed class ClosedTypeDecorationStrategy : IDecorationStrategy
     {
@@ -19,19 +20,19 @@ namespace Scrutor.Decoration
 
         public bool CanDecorate(Type serviceType) => _serviceType == serviceType;
 
-        public Func<IServiceProvider, object> CreateDecorator(Type serviceType)
+        public Func<IServiceProvider, object> CreateDecorator(ServiceDescriptor descriptor)
         {
             if (_decoratorType is not null)
             {
-                return DecoratorInstanceFactory.Default(serviceType, _decoratorType);
+                return DecoratorInstanceFactory.Default(descriptor, _decoratorType);
             }
 
             if (_decoratorFactory is not null)
             {
-                return DecoratorInstanceFactory.Custom(serviceType, _decoratorFactory);
+                return DecoratorInstanceFactory.Custom(descriptor, _decoratorFactory);
             }
 
             throw new InvalidOperationException($"Both serviceType and decoratorFactory can not be null.");
-        } 
+        }
     }
 }

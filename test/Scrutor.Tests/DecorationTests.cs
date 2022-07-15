@@ -1,13 +1,23 @@
-﻿using System;
+﻿using Microsoft.Extensions.DependencyInjection;
+using System;
 using System.Collections.Generic;
-using Microsoft.Extensions.DependencyInjection;
-using Xunit;
 using System.Linq;
 using System.Reflection;
+using Xunit;
 
 namespace Scrutor.Tests
 {
-    public class DecorationTests : TestBase
+    public class DecorationProxiedTypeTests : DecorationTests
+    {
+        public DecorationProxiedTypeTests() => Microsoft.Extensions.DependencyInjection.ServiceCollectionExtensions.DecorationFactory = new Scrutor.Decoration.Strategies.ProxiedType.DecorationFactory();
+    }
+    public class DecorationOriginalTests : DecorationTests
+    {
+        public DecorationOriginalTests() => Microsoft.Extensions.DependencyInjection.ServiceCollectionExtensions.DecorationFactory = new Scrutor.Decoration.Strategies.Original.DecorationFactory();
+    }
+
+    [Collection("DecorationStrategies")]
+    public abstract class DecorationTests : TestBase
     {
         [Fact]
         public void CanDecorateType()

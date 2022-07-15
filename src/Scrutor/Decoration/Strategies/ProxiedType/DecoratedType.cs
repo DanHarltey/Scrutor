@@ -4,7 +4,7 @@ using System.Globalization;
 using System.Reflection;
 using System.Runtime.InteropServices;
 
-namespace Scrutor.Decoration
+namespace Scrutor.Decoration.Strategies.ProxiedType
 {
     internal class DecoratedType : Type
     {
@@ -79,7 +79,7 @@ namespace Scrutor.Decoration
 
         protected override bool IsValueTypeImpl() => _proxiedType.IsValueType;
 #if NETCOREAPP3_1_OR_GREATER
-        public override bool IsSignatureType =>_proxiedType.IsSignatureType;
+        public override bool IsSignatureType => _proxiedType.IsSignatureType;
 #endif
         public override bool IsSecurityCritical => _proxiedType.IsSecurityCritical;
         public override bool IsSecuritySafeCritical => _proxiedType.IsSecuritySafeCritical;
@@ -129,7 +129,7 @@ namespace Scrutor.Decoration
 
         public override RuntimeTypeHandle TypeHandle => _proxiedType.TypeHandle;
 
-        protected override TypeCode GetTypeCodeImpl() => Type.GetTypeCode(_proxiedType);
+        protected override TypeCode GetTypeCodeImpl() => GetTypeCode(_proxiedType);
 
         public override Guid GUID => _proxiedType.GUID;
 

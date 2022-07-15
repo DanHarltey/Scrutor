@@ -1,5 +1,6 @@
 ﻿using Scrutor;
 using Scrutor.Decoration;
+using Scrutor.Decoration.Strategies.Original;
 using System;
 
 // ReSharper disable once CheckNamespace

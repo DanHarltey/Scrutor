@@ -1,6 +1,7 @@
-﻿using System;
+﻿using Microsoft.Extensions.DependencyInjection;
+using System;
 
-namespace Scrutor.Decoration
+namespace Scrutor.Decoration.Strategies.Original
 {
     internal sealed class OpenGenericDecorationStrategy : IDecorationStrategy
     {
@@ -20,26 +21,26 @@ namespace Scrutor.Decoration
         public bool CanDecorate(Type serviceType)
         {
             var canHandle = serviceType.IsGenericType
-                && (!serviceType.IsGenericTypeDefinition)
+                && !serviceType.IsGenericTypeDefinition
                 && _serviceType.GetGenericTypeDefinition() == serviceType.GetGenericTypeDefinition()
                 && HasCompatibleGenericArguments(serviceType);
 
             return canHandle;
         }
 
-        public Func<IServiceProvider, object> CreateDecorator(Type serviceType)
+        public Func<IServiceProvider, object> CreateDecorator(ServiceDescriptor descriptor)
         {
             if (_decoratorType is not null)
             {
-                var genericArguments = serviceType.GetGenericArguments();
+                var genericArguments = descriptor.ServiceType.GetGenericArguments();
                 var closedDecorator = _decoratorType.MakeGenericType(genericArguments);
 
-                return DecoratorInstanceFactory.Default(serviceType, closedDecorator);
+                return DecoratorInstanceFactory.Default(descriptor, closedDecorator);
             }
 
             if (_decoratorFactory is not null)
             {
-                return DecoratorInstanceFactory.Custom(serviceType, _decoratorFactory);
+                return DecoratorInstanceFactory.Custom(descriptor, _decoratorFactory);
             }
 
             throw new InvalidOperationException($"Both serviceType and decoratorFactory can not be null.");

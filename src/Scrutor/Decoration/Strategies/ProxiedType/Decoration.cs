@@ -1,7 +1,8 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
+using Scrutor.Decoration.Strategies.Original;
 using System;
 
-namespace Scrutor.Decoration
+namespace Scrutor.Decoration.Strategies.ProxiedType
 {
     internal sealed class Decoration : IDecoration
     {
