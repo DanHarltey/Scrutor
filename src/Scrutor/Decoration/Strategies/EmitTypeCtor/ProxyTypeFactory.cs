@@ -4,7 +4,7 @@ using System.Reflection;
 using System.Reflection.Emit;
 using System.Runtime.CompilerServices;
 
-namespace Scrutor.Decoration.Strategies.EmitTypeWithFactory
+namespace Scrutor.Decoration.Strategies.EmitTypeCtor
 {
     internal class ProxyTypeFactory
     {
@@ -21,18 +21,43 @@ namespace Scrutor.Decoration.Strategies.EmitTypeWithFactory
 
             var typeBuilder = moduleBuilder.DefineType($"TypeDecorator_{TypeCounter++}_{toProxy}", TypeAttributes.Sealed, baseClass);
 
-            ConstructorBuilder ctor = typeBuilder.DefineConstructor(
-                baseClassConstructor.Attributes,
-                baseClassConstructor.CallingConvention,
-                new[] { typeof(object) });
-
-            ILGenerator ctorIL = ctor.GetILGenerator();
-            ctorIL.Emit(OpCodes.Ldarg_0);
-            ctorIL.Emit(OpCodes.Ldarg_1);
-            ctorIL.Emit(OpCodes.Call, baseClassConstructor);
-            ctorIL.Emit(OpCodes.Ret);
+            var constructors = toProxy.GetConstructors();
+            foreach (var ctor in constructors)
+            {
+                AddConstructor(typeBuilder, ctor, baseClassConstructor);
+            }
 
             return typeBuilder.CreateType()!;
+        }
+
+        private static void AddConstructor(TypeBuilder typeBuilder, ConstructorInfo ctor, ConstructorInfo baseClassConstructor)
+        {
+            var parameters = ctor.GetParameters();
+
+            var parameterTypes = new Type[parameters.Length];
+            for (int i = 0; i < parameters.Length; i++)
+            {
+                parameterTypes[i] = parameters[i].ParameterType;
+            }
+
+            ConstructorBuilder pointCtor = typeBuilder.DefineConstructor(
+                ctor.Attributes,
+                ctor.CallingConvention,
+                parameterTypes);
+
+            ILGenerator ctorIL = pointCtor.GetILGenerator();
+
+            ctorIL.Emit(OpCodes.Ldarg_0);
+
+            for (int i = 0; i < parameterTypes.Length; i++)
+            {
+                ctorIL.Emit(OpCodes.Ldarg, i + 1);
+
+            }
+            ctorIL.Emit(OpCodes.Newobj, ctor);
+            ctorIL.Emit(OpCodes.Call, baseClassConstructor);
+
+            ctorIL.Emit(OpCodes.Ret);
         }
 
         public static Func<IServiceProvider, object> ImplementationTypeToFactory(Type implementationType, Type decoratedWrapper)

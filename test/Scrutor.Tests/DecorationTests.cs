@@ -7,6 +7,11 @@ using Xunit;
 
 namespace Scrutor.Tests
 {
+    public class DecorationEmitTypeCtorTests : DecorationTests
+    {
+        public DecorationEmitTypeCtorTests() => Microsoft.Extensions.DependencyInjection.ServiceCollectionExtensions.DecorationFactory = new Scrutor.Decoration.Strategies.EmitTypeCtor.DecorationFactory();
+    }
+
     public class DecorationEmitTypeWithFactoryTests : DecorationTests
     {
         public DecorationEmitTypeWithFactoryTests() => Microsoft.Extensions.DependencyInjection.ServiceCollectionExtensions.DecorationFactory = new Scrutor.Decoration.Strategies.EmitTypeWithFactory.DecorationFactory();

@@ -1,7 +1,7 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using System;
 
-namespace Scrutor.Decoration.Strategies.EmitTypeWithFactory
+namespace Scrutor.Decoration.Strategies.EmitTypeCtor
 {
     internal sealed class Decoration : IDecoration
     {
@@ -39,10 +39,9 @@ namespace Scrutor.Decoration.Strategies.EmitTypeWithFactory
                 if (IsNotAlreadyDecorated(serviceDescriptor)
                     && _decorationStrategy.CanDecorate(serviceDescriptor.ServiceType))
                 {
-                    var decoratedType = ProxyTypeFactory.CreateWrapperType(serviceDescriptor.ServiceType);
+                    var decoratedType = ProxyTypeFactory.CreateWrapperType(serviceDescriptor.ImplementationType!);
 
-                    var decoratorFactory =
-                        _decorationStrategy.CreateDecorator(decoratedType);
+                    var decoratorFactory = _decorationStrategy.CreateDecorator(decoratedType);
 
                     // insert decorated
                     var decoratedServiceDescriptor = CreateDecoratedServiceDescriptor(serviceDescriptor, decoratedType);
@@ -62,7 +61,7 @@ namespace Scrutor.Decoration.Strategies.EmitTypeWithFactory
 
         private static ServiceDescriptor CreateDecoratedServiceDescriptor(ServiceDescriptor serviceDescriptor, Type decoratedType) => serviceDescriptor switch
         {
-            { ImplementationType: not null } => new ServiceDescriptor(decoratedType, ImplementationTypeToFactory(serviceDescriptor.ImplementationType, decoratedType), serviceDescriptor.Lifetime),
+            { ImplementationType: not null } => new ServiceDescriptor(decoratedType, decoratedType, serviceDescriptor.Lifetime),
             { ImplementationFactory: not null } => new ServiceDescriptor(decoratedType, ImplementationFactoryToFactory(serviceDescriptor.ImplementationFactory, decoratedType), serviceDescriptor.Lifetime),
             { ImplementationInstance: not null } => new ServiceDescriptor(decoratedType, ImplementationInstanceToInstance(serviceDescriptor.ImplementationInstance, decoratedType)),
             _ => throw new ArgumentException($"No implementation factory or instance or type found for {serviceDescriptor.ServiceType}.", nameof(serviceDescriptor))
@@ -70,13 +69,18 @@ namespace Scrutor.Decoration.Strategies.EmitTypeWithFactory
 
         private static Func<IServiceProvider, object> ImplementationTypeToFactory(Type implementationType, Type decoratedWrapper)
         {
-            return ProxyTypeFactory.ImplementationTypeToFactory(implementationType, decoratedWrapper);
-            //var ctor = decoratedWrapper.GetConstructor(new[] { typeof(object) })!;
-            //return (serviceProvider) =>
-            //{
-            //    var instanceToDecorate = ActivatorUtilities.CreateInstance(serviceProvider, implementationType);
-            //    return ctor.Invoke(new[] { instanceToDecorate });
-            //};
+            var ctor = decoratedWrapper.GetConstructor(new[] { typeof(object) })!;
+            return (serviceProvider) =>
+            {
+                var instanceToDecorate = ActivatorUtilities.CreateInstance(serviceProvider, implementationType);
+                return ctor.Invoke(new[] { instanceToDecorate });
+            };
+        }
+
+        private static object LaLaFindMe(IServiceProvider sp)
+        {
+                var instanceToDecorate = ActivatorUtilities.CreateInstance(sp, typeof(object));
+                return new InstanceWrapper(instanceToDecorate);
         }
 
         private static Func<IServiceProvider, object> ImplementationFactoryToFactory(Func<IServiceProvider, object> factory, Type decoratedWrapper)
